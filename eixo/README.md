@@ -2,14 +2,22 @@
 
 Um único lugar para o dia inteiro — trabalho, estudos, família, lazer, saúde e dinheiro — de acordar a ir dormir.
 
-## Abrir
+## Colocar num servidor da rede (dados sincronizados)
 
-É um site estático, sem instalação nem servidor:
+Só precisa de Python 3. No servidor, dentro desta pasta:
 
-- **GitHub Pages:** `https://<usuario>.github.io/duster-a-bruta/eixo/` (depois de publicado na branch do Pages).
-- **Local:** `python3 -m http.server` na raiz do repositório e abra `http://localhost:8000/eixo/`.
+```bash
+sudo bash instalar-servidor.sh        # Linux com systemd: instala como serviço na porta 8080
+python3 server.py                     # qualquer sistema (Windows: python server.py): roda enquanto a janela ficar aberta
+```
 
-No celular, use "Adicionar à tela inicial" para instalar como aplicativo (funciona sem internet).
+O comando mostra o **endereço** (`http://IP-DO-SERVIDOR:8080/`) e a **chave de acesso**. Abra o endereço em qualquer aparelho da rede e digite a chave uma vez; todos passam a ver os mesmos dados, guardados no servidor em `eixo-dados.json`.
+
+Sem HTTPS a chave trafega em texto puro: use só em rede de confiança e não exponha a porta para a internet.
+
+## Abrir sem servidor próprio
+
+Também funciona como site estático (GitHub Pages ou `python3 -m http.server`), mas aí os dados ficam só no navegador de cada aparelho.
 
 ## Como usar
 
@@ -31,4 +39,7 @@ Exemplos de captura:
 
 ## Dados
 
-Tudo fica salvo só no navegador do aparelho (`localStorage`). Não há sincronização entre aparelhos: use **Ajustes → Exportar/Importar backup**.
+- **Com `server.py`:** ficam no servidor e sincronizam entre aparelhos. Se dois aparelhos alterarem ao mesmo tempo, o app pergunta qual versão manter.
+- **Como site estático:** ficam só no navegador (`localStorage`).
+
+Em ambos os casos, **Ajustes → Exportar backup** gera um arquivo com tudo.

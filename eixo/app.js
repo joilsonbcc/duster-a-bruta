@@ -83,9 +83,56 @@ function load() {
   } catch (e) { /* começa do zero */ }
   return blank();
 }
-function save() {
+function saveLocal() {
   try { localStorage.setItem(KEY, JSON.stringify(S)); }
   catch (e) { toast('Não consegui salvar neste aparelho. Faça um backup em Ajustes.'); }
+}
+function save(force) {
+  saveLocal();
+  if ((sync.on || sync.rev) && (S.settings.onboarded || force)) { sync.dirty = true; sync.seq++; saveMeta(); clearTimeout(sync.timer); sync.timer = setTimeout(push, 600); }
+}
+
+/* ---------- sincronização com o servidor (quando o app é servido pelo server.py) ---------- */
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) { /* sem armazenamento */ } };
+const sync = Object.assign({ on: false, rev: 0, dirty: false, seq: 0, timer: null, busy: false, key: lsGet('eixo.key') || '' }, JSON.parse(lsGet('eixo.sync') || '{}'));
+const saveMeta = () => lsSet('eixo.sync', JSON.stringify({ rev: sync.rev, dirty: sync.dirty }));
+const api = (method, body) => fetch('api/state', { method, cache: 'no-store', headers: { 'X-Eixo-Key': sync.key, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+const CONFLICT = 'Outro aparelho salvou dados mais novos no servidor.\n\nOK: usar os dados do servidor.\nCancelar: manter os deste aparelho.';
+function adopt(data) {
+  S = Object.assign(blank(), data.state, { settings: Object.assign(blank().settings, data.state.settings) });
+  sync.rev = data.rev; sync.dirty = false; saveLocal(); saveMeta(); render();
+}
+function askKey(wrong) {
+  openSheet(`<form data-form="key"><h3>Chave de acesso</h3><p>${wrong ? 'Chave incorreta. ' : ''}Este Eixo está num servidor. Digite a chave que aparece na instalação (fica em <i>chave.txt</i> na pasta de dados do servidor).</p>
+    <label class="field"><span>Chave</span><input name="key" required autocomplete="off" autocapitalize="off"></label>
+    <div class="actions"><button class="btn grow" type="submit">Entrar</button></div></form>`);
+}
+async function pull(first) {
+  if (sync.busy) return;
+  sync.busy = true;
+  try {
+    const r = await api('GET');
+    if (r.status === 401) { sync.on = true; return askKey(!!sync.key); }
+    if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) return;   // hospedagem simples: fica só neste aparelho
+    const data = await r.json(), local = S.settings.onboarded;
+    sync.on = true;
+    if (!data.state) { if (local) { sync.rev = data.rev; sync.dirty = true; push(); } }
+    else if (data.rev !== sync.rev || !local) {
+      if (sync.dirty && local && !confirm(CONFLICT)) { sync.rev = data.rev; push(); } else adopt(data);
+    } else if (sync.dirty) push();
+    if (first) render();
+  } catch (e) { /* servidor fora do ar: segue com os dados locais */ } finally { sync.busy = false; }
+}
+async function push() {
+  clearTimeout(sync.timer);
+  const seq = sync.seq;
+  try {
+    const r = await api('PUT', { rev: sync.rev, state: S });
+    if (r.status === 409) { const data = await r.json(); if (confirm(CONFLICT)) adopt(data); else { sync.rev = data.rev; return push(); } }
+    else if (r.status === 401) askKey(!!sync.key);
+    else if (r.ok) { sync.rev = (await r.json()).rev; sync.dirty = sync.seq !== seq; saveMeta(); if (sync.dirty) sync.timer = setTimeout(push, 600); }
+  } catch (e) { sync.timer = setTimeout(push, 15000); }
 }
 
 /* ---------- regras dos itens ---------- */
@@ -142,7 +189,7 @@ function parseCapture(raw, base) {
   };
   const title = () => {
     let t = o.replace(/\s+/g, ' ').trim();
-    for (let i = 0; i < 2; i++) t = t.replace(/^(?:às|as|no|na|em|de|com|pra|para)\s+/i, '').replace(/\s+(?:às|as|no|na|em|de|dia|a|e|,)$/i, '').trim();
+    for (let i = 0; i < 2; i++) t = t.replace(/^(?:às|as|no|na|em|de|com|pra|para)\s+/i, '').replace(/\s+(?:às|as|no|na|em|de|dia|,)$/i, '').trim();
     return t.charAt(0).toUpperCase() + t.slice(1);
   };
   const t = today();
@@ -425,7 +472,7 @@ function viewWelcome() {
       <label class="field"><span>Durmo às</span><input type="time" name="sleep" value="22:30" required></label></div>
       <div class="actions"><button class="btn grow" type="submit">Começar</button><button class="btn ghost" type="button" data-a="demo">Ver com exemplo</button></div>
     </form>
-    <p class="sub" style="margin-top:12px">Seus dados ficam só neste aparelho. Faça backup quando quiser em Ajustes.</p></div>`;
+    <p class="sub" style="margin-top:12px">${sync.on ? 'Seus dados ficam guardados no servidor e aparecem em todos os seus aparelhos.' : 'Seus dados ficam só neste aparelho. Faça backup quando quiser em Ajustes.'}</p></div>`;
 }
 
 /* ---------- folhas (modais) ---------- */
@@ -522,7 +569,7 @@ function sheetSettings() {
     <div class="cols"><label class="field"><span>Acordo às</span><input type="time" name="wake" value="${s.wake}" required></label><label class="field"><span>Durmo às</span><input type="time" name="sleep" value="${s.sleep}" required></label></div>
     <label class="field"><span>Limite de gastos por mês (R$, opcional)</span><input name="budget" inputmode="decimal" value="${s.budget ? String(s.budget).replace('.', ',') : ''}"></label>
     <div class="actions"><button class="btn grow" type="submit">Salvar</button></div></form>
-    <h2>Seus dados</h2><p>Tudo fica só neste aparelho. Exporte um backup de vez em quando — é também assim que você leva os dados para outro aparelho.</p>
+    <h2>Seus dados</h2><p>${sync.on ? `<b>Sincronizado com o servidor.</b> Qualquer aparelho que abrir este endereço vê os mesmos dados${sync.dirty ? ' (há alterações aguardando envio)' : ''}. Ainda assim, exporte um backup de vez em quando.` : 'Tudo fica só neste aparelho. Exporte um backup de vez em quando — é também assim que você leva os dados para outro aparelho.'}</p>
     <div class="actions"><button class="btn ghost" data-a="export">Exportar backup</button><label class="btn ghost">Importar backup<input type="file" accept="application/json,.json" data-import hidden></label><button class="btn danger" data-a="wipe">Apagar tudo</button></div>`;
 }
 
@@ -596,11 +643,12 @@ const actions = {
     a.href = URL.createObjectURL(new Blob([JSON.stringify(S, null, 1)], { type: 'application/json' }));
     a.download = `eixo-backup-${today()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   },
-  wipe: () => { if (!confirm('Apagar TODOS os dados deste aparelho? Não dá para desfazer.')) return; S = blank(); commit(); },
+  wipe: () => { if (!confirm(sync.on ? 'Apagar TODOS os dados, neste aparelho e no servidor? Não dá para desfazer.' : 'Apagar TODOS os dados deste aparelho? Não dá para desfazer.')) return; S = blank(); save(true); closeSheet(); render(); },
   demo: () => { seedDemo(); commit(); },
 };
 
 const forms = {
+  key: f => { sync.key = f.key.trim(); lsSet('eixo.key', sync.key); closeSheet(); pull(true); },
   welcome: f => { Object.assign(S.settings, { name: f.name.trim(), wake: f.wake, sleep: f.sleep, onboarded: true }); commit(); },
   settings: f => { Object.assign(S.settings, { name: f.name.trim(), wake: f.wake, sleep: f.sleep, budget: parseMoney(f.budget || '0') }); commit(); toast('Ajustes salvos.'); },
   item: (f, id, form) => {
@@ -742,7 +790,7 @@ document.addEventListener('change', e => {
       const data = JSON.parse(txt);
       if (!data || !Array.isArray(data.items) || !data.settings) throw new Error('formato');
       if (!confirm('Substituir os dados deste aparelho pelo backup?')) return;
-      localStorage.setItem(KEY, JSON.stringify(data)); S = load(); closeSheet(); render(); toast('Backup restaurado.');
+      localStorage.setItem(KEY, JSON.stringify(data)); S = load(); save(true); closeSheet(); render(); toast('Backup restaurado.');
     }).catch(() => toast('Este arquivo não é um backup do Eixo.'));
   }
 });
@@ -750,15 +798,17 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet
 $('#capture-input').addEventListener('input', preview);
 
 // "lastSeen" guarda a visita anterior, para acolher quem ficou dias sem abrir
-if (S.settings.lastOpen !== today()) { S.settings.lastSeen = S.settings.lastOpen; S.settings.lastOpen = today(); save(); }
+if (S.settings.lastOpen !== today()) { S.settings.lastSeen = S.settings.lastOpen; S.settings.lastOpen = today(); saveLocal(); }
 let lastDay = today();
 setInterval(() => {
   if (today() !== lastDay) { if (ui.date === lastDay) ui.date = today(); lastDay = today(); }
   if (ui.view === 'hoje' && $('#sheet').hidden && S.settings.onboarded) render();
+  if (sync.on && $('#sheet').hidden && !document.hidden) pull();
 }, 60000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && $('#sheet').hidden) render(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && $('#sheet').hidden) { render(); if (sync.on) pull(); } });
 
 render();
+if (location.protocol.startsWith('http')) pull(true);
 if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 window.__eixo = { parseCapture };
 })();
