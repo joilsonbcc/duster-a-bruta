@@ -1,0 +1,17 @@
+# Eixo em Docker: docker compose up -d   (na pasta eixo)
+# Endereço: http://IP-DO-SERVIDOR:8080/   ·   Chave de acesso: docker compose logs eixo
+services:
+  eixo:
+    image: python:3.12-alpine
+    container_name: eixo
+    restart: always
+    working_dir: /app
+    command: python -u server.py --port 8080 --dados /dados
+    ports:
+      - '8080:8080'
+    volumes:
+      - ./:/app:ro
+      - eixo_dados:/dados
+
+volumes:
+  eixo_dados:

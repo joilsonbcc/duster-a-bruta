@@ -15,7 +15,7 @@ import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
-PRIVATE = {'dados', 'server.py', 'instalar-servidor.sh', 'README.md'}
+PRIVATE = {'dados', 'server.py', 'instalar-servidor.sh', 'docker-compose.yml', 'README.md'}
 MAX_BODY = 20 * 1024 * 1024
 lock = threading.Lock()
 

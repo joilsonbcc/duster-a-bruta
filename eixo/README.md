@@ -11,6 +11,8 @@ sudo bash instalar-servidor.sh        # Linux com systemd: instala como serviço
 python3 server.py                     # qualquer sistema (Windows: python server.py): roda enquanto a janela ficar aberta
 ```
 
+Com Docker (Portainer, etc.), use `docker compose up -d` nesta pasta e veja a chave com `docker compose logs eixo`.
+
 O comando mostra o **endereço** (`http://IP-DO-SERVIDOR:8080/`) e a **chave de acesso**. Abra o endereço em qualquer aparelho da rede e digite a chave uma vez; todos passam a ver os mesmos dados, guardados no servidor em `eixo-dados.json`.
 
 Sem HTTPS a chave trafega em texto puro: use só em rede de confiança e não exponha a porta para a internet.
