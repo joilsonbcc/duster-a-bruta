@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Eixo — sua vida inteira num lugar só</title>
+<meta name="description" content="Um único lugar para o dia inteiro: trabalho, estudos, família, lazer, saúde e dinheiro, de acordar a ir dormir.">
+<meta name="theme-color" content="#f6f3ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141311" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <nav class="nav" aria-label="Principal">
+    <div class="brand"><span class="brand-mark">◎</span> Eixo</div>
+    <button data-a="go" data-view="hoje"><i>☀</i><span>Hoje</span></button>
+    <button data-a="go" data-view="semana"><i>▦</i><span>Semana</span></button>
+    <button data-a="go" data-view="vida"><i>✦</i><span>Vida</span></button>
+    <button data-a="go" data-view="dinheiro"><i>$</i><span>Dinheiro</span></button>
+    <button data-a="go" data-view="revisao"><i>↺</i><span>Revisão</span></button>
+  </nav>
+
+  <main id="view" class="view"></main>
+
+  <form id="capture" class="capture" autocomplete="off">
+    <div id="capture-preview" class="capture-preview" hidden></div>
+    <div class="capture-row">
+      <input id="capture-input" type="text" enterkeyhint="done" aria-label="Captura rápida"
+             placeholder="Escreva qualquer coisa: reunião amanhã 14h…">
+      <button type="submit" aria-label="Adicionar">+</button>
+    </div>
+  </form>
+</div>
+
+<div id="sheet" class="sheet" hidden>
+  <div class="sheet-back" data-a="closeSheet"></div>
+  <div class="sheet-body" role="dialog" aria-modal="true"></div>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
